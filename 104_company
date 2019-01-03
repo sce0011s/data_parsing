@@ -1,0 +1,32 @@
+library(httr)
+library(rvest)
+library(dplyr)
+library(stringr)
+
+url <- "https://www.104.com.tw/cust/list/index/?page=1&order=1&mode=s&jobsource=checkc"
+
+url_page <- GET(url) %>% content(as = "text") %>% read_html() %>% html_nodes(css = ".page-total") %>% html_text() %>% str_replace_all("[共 頁]","") %>% as.integer()
+data <- list()
+for(i in 1:url_page){
+  data[[i]] <- GET(paste0("https://www.104.com.tw/cust/list/index/?page=",as.character(i),"&order=1&mode=s&jobsource=checkc")) %>% content(as = "text") %>% read_html() %>% html_nodes(css = ".items") %>% 
+    lapply(function(node){
+      list(
+        tag = node %>% html_node(css = ".jbi-s18-cust") %>% html_text()
+        ,name = node %>% html_node(css = "h1") %>% html_text()
+        ,data_1 = node %>% html_node(css = "p:nth-child(2)") %>% html_text()
+        ,data_2 = node %>% html_node(css = "p:nth-child(3)") %>% html_text()
+        ,data_3 = node %>% html_node(css = "p:nth-child(4)") %>% html_text()
+      )
+    })
+}
+
+data_1 <- do.call(rbind,data) %>% do.call(rbind,.) %>% as.data.frame()
+for(i in 1:nrow(data_1)){
+  data_1$data_1[i] <- ifelse(is.na(data_1$tag[i]) , data_1$data_1[i] , data_1$data_2[i] )
+  data_1$data_2[i] <- ifelse(is.na(data_1$tag[i]) , data_1$data_2[i] , data_1$data_3[i] )
+}
+
+data_1$data_1 <- str_trim(data_1$data_1,"both")
+data_1$data_2 <- str_trim(data_1$data_2,"both")
+location_job <- str_split_fixed(data_1$data_1,"，",2) %>% as.data.frame()
+capital_employees <- str_split_fixed(data_1$data_2,"，",2) %>% as.data.frame()
