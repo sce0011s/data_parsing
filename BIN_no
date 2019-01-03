@@ -1,0 +1,59 @@
+library(httr)
+library(rvest)
+library(dplyr)
+library(rjson)
+library(openxlsx)
+url <- "https://www.freebinchecker.com/bin-number"
+
+#找出所有國家名稱
+country <- GET(url) %>% content(as = "text") %>% read_html() %>% html_nodes(css = "#ctry") %>% html_children() %>% html_text()
+country <- country[country!=""]
+
+data <- list()
+for(i in 1:length(country)){
+  #找出金融組織 VISA.MASTERCARD等
+  q=paste0("country_id:",tolower(country[i])) 
+  cardnetwork <- POST(url,body = list("q"=q,"s"="scheme")) %>% content(as = "text")
+  #如果沒有資料則跳過該筆繼續執行
+  if(cardnetwork!=""){
+    cardnetwork <- cardnetwork %>% fromJSON() %>% .$data %>% strsplit(.,";;",useBytes = T) %>% .[[1]]
+  } else { next}
+  if(length(cardnetwork)==0){next}
+  #找出銀行名稱
+  for(j in 1:length(cardnetwork)){
+    q=paste0("country_id:",tolower(country[i]) , " AND " , "scheme:" , cardnetwork[j])
+    Bank <- POST(url,body = list("q" = q ,"s"="bank_name")) %>% content(as = "text") %>% fromJSON() %>% .$data
+    Bank <- strsplit(Bank,";;",useBytes = T) %>% .[[1]]
+    #找出卡號
+    for(k in 1:length(Bank)){
+      q=paste0("country_id:",tolower(country[i]) , " AND " , "scheme:" , cardnetwork[j] , " AND " , "bank_name:" , "\"" ,Bank[k] , "\"")
+      BIN_number <- POST(url,body = list("q"=q,"s"="id")) %>% content(as = "text") %>% fromJSON() %>% .$data
+      data[[paste0(country[i],";",cardnetwork[j],";",Bank[k])]] <- strsplit(BIN_number,";;",useBytes = T) %>% .[[1]]
+    }
+  }
+}
+
+#從卡號抓取卡片資訊
+
+card_no <- unlist(data)
+card_no <- card_no[card_no!=""]
+
+card_info <- list()
+FUN <- function(x){
+  POST(url,body = list(
+    "q"=paste0("id:",as.character(x)))
+    ) %>% content(as = "text") %>% fromJSON() %>% .$data
+  }
+
+card_info <- lapply(card_no, FUN) %>% do.call(rbind,.) %>% as.data.frame()
+card_info <- cbind(card_no,card_info,row.names(card_info))
+rownames(card_info) <- c(as.character(1:nrow(card_info)))
+
+GrandCreditCard <- card_info[card_info$brand=="INFINITE" | card_info$brand=="WORLD CARD",]
+GrandCreditCard$card_no <- as.character(GrandCreditCard$card_no)
+
+GrandCreditCard_no$GrandCreditCard.card_no <- substr(GrandCreditCard_no$GrandCreditCard.card_no,1,6)
+GrandCreditCard_no <- GrandCreditCard_no[duplicated(GrandCreditCard_no$GrandCreditCard.card_no)==0,]
+GrandCreditCard_no <- data.frame(GrandCreditCard_no)
+
+write.xlsx(GrandCreditCard_no,"GrandCreditCard_no.xlsx")
