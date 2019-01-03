@@ -2,16 +2,16 @@ library(R.utils)
 
 file <- c("00000000","10000000","20000000","30000000","40000000","50000000","60000000","70000000","80000000","90000000")
 
-if(file.exists("C://Users//80363//Desktop//director")==0){
-  dir.create("C://Users//80363//Desktop//director")
+if(file.exists("director")==0){
+  dir.create("director")
 }
 # 讀取資料 來源：http://ronnywang-twcompany.s3-website-ap-northeast-1.amazonaws.com/files/ 下載.json.gz 並先進行解壓縮
 for(i in 1:length(file)){
   download.file(paste0("http://ronnywang-twcompany.s3-website-ap-northeast-1.amazonaws.com/files/",file[i],".json.gz"),paste0("C://Users//80363//Desktop//director//",file[i],".json.gz"))
-  gunzip(paste0("C://Users//80363//Desktop//director//",file[i],".json.gz"))
+  gunzip(paste0("director//",file[i],".json.gz"))
 }
 
-filename <- paste0("C://Users//80363//Desktop//director//",dir("C://Users//80363//Desktop//director//"))
+filename <- paste0("director//",dir("director//"))
 
 for (i in 1:10){
   assign(paste0("company",as.character(i)),readLines(con = filename[i],encoding = "UTF-8"))
@@ -26,7 +26,7 @@ companydataJson[1] <- paste0("[",companydataJson[1])
 companydataJson[length(companydataJson)] <- paste0(companydataJson[length(companydataJson)],"]")
 
 #匯出全部公司資料
-writeLines(companydataJson,con="C://Users//80363//Desktop//companyJsonfile.json",useBytes = TRUE)
+writeLines(companydataJson,con="companyJsonfile.json",useBytes = TRUE)
 #清空記憶體及所有物件
 rm(list=ls())
 gc()
@@ -35,7 +35,7 @@ library(rjson)
 library(dplyr)
 library(RODBC)
 #讀取全部公司資料
-companyJsonfile <- fromJSON(file = "C://Users//80363//Desktop//companyJsonfile.json")
+companyJsonfile <- fromJSON(file = "companyJsonfile.json")
 
 #找出經理人名單
 data <- lapply(companyJsonfile,function(x){ x$經理人名單})
@@ -57,7 +57,3 @@ director$職稱<- as.character(director$職稱)
 directordata <- cbind(total_id,director) %>% as.data.frame()
 
 export <- rbind(directordata,managerdata)
-
-conn <- odbcDriverConnect('Driver={SQL Server};server=172.24.202.108;database=CRC;Uid=80363;Pwd=401651350')
-sqlSave(conn, export, tablename = "[Directors]", rownames=FALSE, append=TRUE)
-close(conn);
